@@ -1,10 +1,11 @@
-<script type="text/ecmascript-6">
-    import $ from 'jquery';
+<script type="text/ecmascript">
     import FeaturedImageUploader from './FeaturedImageUploader';
+    import SEOModal from './../../components/SEOModal';
 
     export default {
         components: {
-            'featured-image-uploader': FeaturedImageUploader
+            'featured-image-uploader': FeaturedImageUploader,
+            'seo-modal': SEOModal,
         },
 
 
@@ -17,15 +18,21 @@
                 authors: [],
                 status: '',
 
+                saveKeyboardShortcut: null,
+
+                settingsModalShown: false,
+                publishingModalShown: false,
+                seoModalShown: false,
+
                 id: this.$route.params.id || 'new',
 
                 errors: [],
 
-                formWatcher: null,
+                postBodyWatcher: null,
 
                 form: {
                     id: '',
-                    title: 'Post Title',
+                    title: 'Draft',
                     slug: '',
                     excerpt: '',
                     tags: [],
@@ -34,30 +41,47 @@
                     featured_image_caption: '',
                     body: '',
                     published: false,
-                    publish_date: ''
+                    publish_date: '',
+                    meta: {
+                        meta_description: '',
+                        opengraph_title: '',
+                        opengraph_description: '',
+                        opengraph_image: '',
+                        opengraph_image_width: '',
+                        opengraph_image_height: '',
+                        twitter_title: '',
+                        twitter_description: '',
+                        twitter_image: '',
+                    }
                 }
             };
         },
 
 
         watch: {
-            'form.slug'(val){
+            'form.slug'(val) {
                 this.debouncer(() => {
                     this.form.slug = this.slugify(val);
                 });
             },
 
-            'form.published'(val){
-                if (this.formWatcher) {
-                    this.formWatcher();
+
+            'form.featured_image'() {
+                this.save();
+            },
+
+
+            'form.published'(val) {
+                if (this.postBodyWatcher) {
+                    this.postBodyWatcher();
                 }
 
                 if (!val) {
-                    this.watchChangesAndSave();
+                    this.watchBodyChangesAndSave();
                 }
             },
 
-            '$route.params.id'(){
+            '$route.params.id'() {
                 this.id = this.$route.params.id;
             }
         },
@@ -70,7 +94,7 @@
 
             this.loadResources();
 
-            this.http().get('/wink/api/posts/' + this.id).then(response => {
+            this.http().get('/api/posts/' + this.id).then(response => {
                 this.entry = _.cloneDeep(response.data.entry);
 
                 this.fillForm(response.data.entry);
@@ -88,29 +112,31 @@
          * Clean after the component is destroyed.
          */
         destroyed() {
-            $(document).off('keydown');
+            document.removeEventListener('keydown', this.saveKeyboardShortcut);
         },
 
 
         methods: {
-            registerSaveKeyboardShortcut(){
-                $(document).keydown(event => {
-                        if ((event.ctrlKey || event.metaKey) && event.which == 83) {
-                            event.preventDefault();
+            registerSaveKeyboardShortcut() {
+                this.saveKeyboardShortcut = (event) => {
+                    if ((event.ctrlKey || event.metaKey) && event.which == 83) {
+                        event.preventDefault();
 
-                            this.save();
-                        }
+                        this.save();
                     }
-                );
+                };
+
+                document.addEventListener('keydown', this.saveKeyboardShortcut);
             },
 
 
             /**
              * Fill the form.
              */
-            fillForm(data){
+            fillForm(data) {
                 this.form.id = data.id;
                 this.form.publish_date = data.publish_date;
+                this.form.slug = 'draft-' + this.form.id;
 
                 if (this.id != 'new') {
                     this.form.title = data.title;
@@ -122,10 +148,21 @@
                     this.form.author_id = data.author_id || '';
                     this.form.featured_image = data.featured_image;
                     this.form.featured_image_caption = data.featured_image_caption;
+                    this.form.meta = {
+                        meta_description: data.meta.meta_description || '',
+                        opengraph_title: data.meta.opengraph_title || '',
+                        opengraph_description: data.meta.opengraph_description || '',
+                        opengraph_image: data.meta.opengraph_image || '',
+                        opengraph_image_width: data.meta.opengraph_image_width || '',
+                        opengraph_image_height: data.meta.opengraph_image_height || '',
+                        twitter_title: data.meta.twitter_title || '',
+                        twitter_description: data.meta.twitter_description || '',
+                        twitter_image: data.meta.twitter_image || '',
+                    };
                 }
 
                 if (!this.form.published) {
-                    this.watchChangesAndSave();
+                    this.watchBodyChangesAndSave();
                 }
             },
 
@@ -133,9 +170,9 @@
             /**
              * Watch changes and save the post.
              */
-            watchChangesAndSave(){
+            watchBodyChangesAndSave() {
                 setTimeout(() => {
-                    this.formWatcher = this.$watch('form', _.debounce(() => this.save(), 1000), {deep: true});
+                    this.postBodyWatcher = this.$watch('form.body', _.debounce(() => this.save(), 1000), {deep: true});
                 }, 1000);
             },
 
@@ -143,16 +180,16 @@
             /**
              * Load the resources needed for the screen.
              */
-            loadResources(){
-                this.http().get('/wink/api/tags').then(response => {
-                    this.tags = response.data.entries;
+            loadResources() {
+                this.http().get('/api/tags').then(response => {
+                    this.tags = response.data.data;
                 });
 
-                this.http().get('/wink/api/team').then(response => {
-                    this.authors = response.data.entries;
+                this.http().get('/api/team').then(response => {
+                    this.authors = response.data.data;
 
                     if (!this.form.author_id && this.authors) {
-                        this.form.author_id = _.first(this.authors).id;
+                        this.form.author_id = this.Wink.author.id;
                     }
                 });
             },
@@ -161,7 +198,7 @@
             /**
              * Listen to changes in the post body.
              */
-            updatePostBody(data){
+            updatePostBody(data) {
                 this.form.body = data.body;
             },
 
@@ -169,7 +206,7 @@
             /**
              * Update the post title.
              */
-            updateTitle(val){
+            updateTitle(val) {
                 this.form.title = val;
             },
 
@@ -177,25 +214,41 @@
             /**
              * Open the settings modal.
              */
-            settingsModal(){
-                $('#postSettingsModal').modal('show');
+            settingsModal() {
+                this.settingsModalShown = true;
+            },
 
-                $('#title').focus();
+
+            /**
+             * Close the Settings modal.
+             */
+            closeSettingsModal() {
+                this.settingsModalShown = false;
+
+                this.save();
+            },
+
+
+            /**
+             * Open the SEO & Social modal.
+             */
+            seoModal() {
+                this.seoModalShown = true;
             },
 
 
             /**
              * Open the publishing modal.
              */
-            publishingModal(){
-                $('#publishingModal').modal('show');
+            publishingModal() {
+                this.publishingModalShown = true;
             },
 
 
             /**
              * Open the featured image modal.
              */
-            featuredImageModal(){
+            featuredImageModal() {
                 this.$emit('openingFeaturedImageUploader');
             },
 
@@ -203,20 +256,31 @@
             /**
              * Handle the change event of featured images.
              */
-            featuredImageChanged({url, caption}){
+            featuredImageChanged({url, caption}) {
                 this.form.featured_image = url;
                 this.form.featured_image_caption = caption;
             },
 
 
             /**
+             * Close the SEO modal.
+             */
+            closeSeoModal({content}) {
+                this.seoModalShown = false;
+                this.form.meta = content;
+
+                this.save();
+            },
+
+
+            /**
              * Delete the post.
              */
-            deletePost(){
+            deletePost() {
                 this.alertConfirm("Are you sure you want to delete this post?", () => {
-                    $('#postSettingsModal').modal('hide');
+                    this.settingsModalShown = false;
 
-                    this.http().delete('/wink/api/posts/' + this.id, this.form).then(response => {
+                    this.http().delete('/api/posts/' + this.id, this.form).then(response => {
                         this.$router.push({name: 'posts'})
                     })
                 });
@@ -226,12 +290,12 @@
             /**
              * Publish the post.
              */
-            publishPost(){
+            publishPost() {
                 this.form.published = true;
 
                 this.save();
 
-                $('#publishingModal').modal('hide');
+                this.publishingModalShown = false;
 
                 this.notifySuccess('Post Published!', 2000);
             },
@@ -240,12 +304,12 @@
             /**
              * Un-publish the post.
              */
-            unpublishPost(){
+            unpublishPost() {
                 this.form.published = false;
 
                 this.save();
 
-                $('#publishingModal').modal('hide');
+                this.publishingModalShown = false;
 
                 this.notifySuccess('Post was converted to a draft!', 2000);
             },
@@ -254,23 +318,28 @@
             /**
              * Save the post.
              */
-            save(){
+            save() {
+                if (this.status) return;
+
                 this.errors = [];
                 this.status = 'Saving...';
 
-                this.form.slug = this.form.slug || 'draft-' + this.form.id;
-                this.form.title = this.form.title || 'Draft';
+                if (this.form.title != 'Draft' && (!this.form.slug || this.form.slug.startsWith('draft-'))) {
+                    this.form.slug = this.slugify(this.form.title);
+                }
 
-                this.http().post('/wink/api/posts/' + this.id, this.form).then(response => {
+                this.http().post('/api/posts/' + this.id, this.form).then(response => {
                     this.status = '';
 
                     if (this.id == 'new') {
                         this.$router.push({name: 'post-edit', params: {id: this.form.id}})
                     }
                 }).catch(error => {
+                    this.status = '';
+
                     this.errors = error.response.data.errors;
 
-                    $('#postSettingsModal').modal('show');
+                    this.settingsModalShown = true;
                 });
             },
         }
@@ -282,139 +351,134 @@
         <page-header>
             <div slot="left-side">
                 <div v-if="ready && entry">
-                    <strong v-if="!status && form.published">Published</strong>
-                    <strong v-if="!status && !form.published">Draft</strong>
+                    <span class="font-semibold" v-if="!status && form.published">Published</span>
+                    <span class="font-semibold" v-if="!status && !form.published">Draft</span>
                     <span v-if="status">{{status}}</span>
                 </div>
             </div>
 
-            <div slot="right-side">
-                <div v-if="ready && entry">
-                    <button class="btn btn-link btn-sm" @click="featuredImageModal">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="icon fill-secondary">
-                            <path d="M0 4c0-1.1.9-2 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm11 9l-3-3-6 6h16l-5-5-2 2zm4-4a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
-                        </svg>
-                    </button>
+            <div class="flex items-center" v-if="ready && entry" slot="right-side">
+                <button class="py-1 px-2 btn-primary text-sm mr-6" @click="publishingModal" v-if="!form.published">Publish</button>
+                <button class="py-1 px-2 btn-primary text-sm mr-6" @click="publishingModal" v-if="form.published">Update</button>
 
-                    <button class="btn btn-link btn-sm" @click="settingsModal">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="icon fill-secondary">
+                <dropdown class="relative">
+                    <button slot="trigger" class="focus:outline-none text-light hover:text-primary h-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="w-4 h-4 fill-current mt-1">
                             <path d="M17 16v4h-2v-4h-2v-3h6v3h-2zM1 9h6v3H1V9zm6-4h6v3H7V5zM3 0h2v8H3V0zm12 0h2v12h-2V0zM9 0h2v4H9V0zM3 12h2v8H3v-8zm6-4h2v12H9V8z"/>
                         </svg>
                     </button>
 
-                    <button class="btn btn-outline-primary btn-sm ml-2" @click="publishingModal" v-if="!form.published">Publish</button>
-                    <button class="btn btn-outline-primary btn-sm ml-2" @click="publishingModal" v-if="form.published">Update</button>
-                </div>
+                    <div slot="content" class="dropdown-content pin-r min-w-dropdown mt-1 text-sm py-2">
+                        <a href="#" @click.prevent="settingsModal" class="no-underline text-text-color hover:text-primary w-full block py-2 px-4">
+                            General Settings
+                        </a>
+                        <a href="#" @click.prevent="featuredImageModal" class="no-underline text-text-color hover:text-primary w-full block py-2 px-4">
+                            Featured Image
+                        </a>
+                        <a href="#" @click.prevent="seoModal" class="no-underline text-text-color hover:text-primary w-full block py-2 px-4">
+                            SEO & Social
+                        </a>
+                        <a href="#" @click.prevent="deletePost" class="no-underline text-red w-full block py-2 px-4" v-if="id != 'new'">Delete</a>
+                    </div>
+                </dropdown>
             </div>
         </page-header>
 
         <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-lg-8">
-                    <div class="card">
-                        <div v-if="!ready" class="d-flex align-items-center justify-content-center p-5 bottom-radius">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="preloader spin fill-secondary">
-                                <path d="M10 3v2a5 5 0 0 0-3.54 8.54l-1.41 1.41A7 7 0 0 1 10 3zm4.95 2.05A7 7 0 0 1 10 17v-2a5 5 0 0 0 3.54-8.54l1.41-1.41zM10 20l-4-4 4-4v8zm0-12V0l4 4-4 4z"/>
-                            </svg>
-                        </div>
+            <preloader v-if="!ready"></preloader>
 
+            <h2 v-if="ready && !entry" class="text-center font-normal">
+                404 — Post not found
+            </h2>
 
-                        <div v-if="ready && !entry" class="d-flex align-items-center justify-content-center p-5 bottom-radius">
-                            <h2 class="mb-5 text-center">404 — Post not found</h2>
-                        </div>
+            <div class="lg:w-3/4 mx-auto" v-if="ready && entry">
+                <textarea-autosize
+                        placeholder="Type something here..."
+                        class="text-3xl font-semibold w-full focus:outline-none mb-10"
+                        v-model="form.title"
+                ></textarea-autosize>
 
-                        <div v-if="ready && entry">
-
-
-                            <div id="editorContainer">
-                                <textarea-autosize
-                                    placeholder="Type something here..."
-                                    class="editor-title"
-                                    v-model="form.title"
-                                ></textarea-autosize>
-
-                                <editor :post-id="id" v-model="form.body"></editor>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Post Settings Modal -->
-                    <div class="modal" id="postSettingsModal" tabindex="-1" role="dialog" aria-hidden="true">
-                        <div class="modal-dialog" role="document">
-                            <div class="modal-content">
-                                <div class="modal-body">
-                                    <div class="form-group border-bottom pb-3">
-                                        <label for="slug" class="inline-form-control-label">Slug</label>
-                                        <input type="text" class="inline-form-control text-body-color"
-                                               v-model="form.slug"
-                                               placeholder="Give me a slug"
-                                               id="slug">
-
-                                        <form-errors :errors="errors.slug"></form-errors>
-                                    </div>
-
-                                    <div class="form-group border-bottom pb-3">
-                                        <label for="author_id" class="inline-form-control-label">Author</label>
-                                        <select name="author_id" class="inline-form-control text-body-color"
-                                                v-model="form.author_id"
-                                                id="author_id">
-                                            <option v-for="author in authors" :value="author.id">{{author.name}}</option>
-                                        </select>
-                                        <form-errors :errors="errors.author_id"></form-errors>
-                                    </div>
-
-                                    <div class="form-group border-bottom pb-3">
-                                        <label for="tag_ids" class="inline-form-control-label">Tags</label>
-                                        <multiselect :options="tags"
-                                                     option-id="id"
-                                                     v-model="form.tags"
-                                                     option-text="name"
-                                        ></multiselect>
-                                        <form-errors :errors="errors.tags"></form-errors>
-                                    </div>
-
-                                    <div class="form-group border-bottom pb-3">
-                                        <label for="excerpt" class="inline-form-control-label">Excerpt</label>
-                                        <textarea class="inline-form-control text-body-color"
-                                                  v-model="form.excerpt"
-                                                  placeholder="What's this post about?"
-                                                  id="excerpt"></textarea>
-
-                                        <form-errors :errors="errors.excerpt"></form-errors>
-                                    </div>
-
-                                    <button class="btn btn-link text-danger p-0" @click="deletePost" v-if="id != 'new'">Delete this post</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Publishing Modal -->
-                    <div class="modal" id="publishingModal" tabindex="-1" role="dialog" aria-hidden="true">
-                        <div class="modal-dialog" role="document">
-                            <div class="modal-content">
-                                <div class="modal-body">
-                                    <div class="form-group pb-3">
-                                        <label class="inline-form-control-label">Publish Date (M/D/Y H:M)</label>
-                                        <date-time-picker v-model="form.publish_date"></date-time-picker>
-                                        <form-errors :errors="errors.publish_date"></form-errors>
-                                    </div>
-
-                                    <button class="btn btn-sm btn-outline-primary" @click="publishPost" v-if="!form.published" v-loading="status">Publish this post</button>
-                                    <button class="btn btn-sm btn-outline-primary" @click="publishPost" v-if="form.published" v-loading="status">Update Post</button>
-                                    <button class="btn btn-sm btn-outline-secondary" @click="unpublishPost" v-if="form.published" v-loading="status">Convert to draft</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <featured-image-uploader :post-id="this.form.id"
-                                             @changed="featuredImageChanged"
-                                             :current-image-url="form.featured_image"
-                                             :current-caption="form.featured_image_caption"></featured-image-uploader>
-                </div>
+                <editor :post-id="id" v-model="form.body"></editor>
             </div>
         </div>
+
+        <!-- General Settings Modal -->
+        <modal v-if="settingsModalShown" @close="closeSettingsModal">
+            <div class="input-group pt-0">
+                <label for="slug" class="input-label">Slug</label>
+                <input type="text" class="input"
+                       v-model="form.slug"
+                       placeholder="Give me a slug"
+                       id="slug">
+
+                <form-errors :errors="errors.slug"></form-errors>
+            </div>
+
+            <div class="input-group">
+                <label for="author_id" class="input-label">Author</label>
+                <select name="author_id" class="input"
+                        v-model="form.author_id"
+                        id="author_id">
+                    <option v-for="author in authors" :value="author.id">{{author.name}}</option>
+                </select>
+                <form-errors :errors="errors.author_id"></form-errors>
+            </div>
+
+            <div class="input-group">
+                <label for="tag_ids" class="input-label mb-4">Tags</label>
+                <multiselect :options="tags"
+                             option-id="id"
+                             v-model="form.tags"
+                             option-text="name"
+                ></multiselect>
+                <form-errors :errors="errors.tags"></form-errors>
+            </div>
+
+            <div class="input-group">
+                <label for="excerpt" class="input-label">Excerpt</label>
+                <textarea class="input"
+                          v-model="form.excerpt"
+                          placeholder="What's this post about?"
+                          id="excerpt"></textarea>
+
+                <form-errors :errors="errors.excerpt"></form-errors>
+            </div>
+
+            <div class="mt-10">
+                <button class="btn-sm btn-primary" @click="closeSettingsModal">Done</button>
+            </div>
+        </modal>
+
+        <!-- Publishing Modal -->
+        <modal v-if="publishingModalShown" @close="publishingModalShown = false">
+            <div class="mb-10 text-red" v-if="form.title == 'Draft' || !form.slug || form.slug.startsWith('draft-')">
+                Make sure your post has a friendly title and slug.
+            </div>
+
+            <div class="input-group pt-0">
+                <label class="input-label">Publish Date (M/D/Y H:M) UTC</label>
+                <date-time-picker v-model="form.publish_date"></date-time-picker>
+                <form-errors :errors="errors.publish_date"></form-errors>
+            </div>
+
+            <div class="mt-10">
+                <button class="btn-sm btn-primary" @click="publishPost" v-if="!form.published" v-loading="status">Publish this post</button>
+                <button class="btn-sm btn-primary" @click="publishPost" v-if="form.published" v-loading="status">Update Post</button>
+                <button class="btn-sm ml-1 btn-light" @click="unpublishPost" v-if="form.published" v-loading="status">Convert to draft</button>
+                <button class="btn-sm ml-1 btn-light" @click="publishingModalShown = false">Cancel</button>
+            </div>
+        </modal>
+
+        <!-- SEO & Social Modal -->
+        <seo-modal v-if="seoModalShown"
+                   :input="form.meta"
+                   @close="closeSeoModal"></seo-modal>
+
+        <!-- Featured Image Modal -->
+        <featured-image-uploader :post-id="this.form.id"
+                                 @changed="featuredImageChanged"
+                                 :current-image-url="form.featured_image"
+                                 :current-caption="form.featured_image_caption"></featured-image-uploader>
     </div>
 </template>
 

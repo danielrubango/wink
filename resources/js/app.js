@@ -4,29 +4,34 @@ import {Bus} from './bus.js';
 import Routes from './routes';
 import VueRouter from 'vue-router';
 import VueTextareaAutosize from 'vue-textarea-autosize';
+import VueCroppie from 'vue-croppie';
 
-require('bootstrap');
 
 Vue.use(VueRouter);
 Vue.use(VueTextareaAutosize);
-
-window.Popper = require('popper.js').default;
+Vue.use(VueCroppie);
 
 const router = new VueRouter({
     routes: Routes,
     mode: 'history',
-    base: '/wink',
+    base: '/' + Wink.path,
 });
 
-Vue.component('alert', require('./components/Alert.vue'));
-Vue.component('notification', require('./components/Notification.vue'));
-Vue.component('page-header', require('./components/PageHeader.vue'));
-Vue.component('mini-editor', require('./components/MiniEditor.vue'));
-Vue.component('editor', require('./components/Editor.vue'));
-Vue.component('form-errors', require('./components/FormErrors.vue'));
-Vue.component('image-picker', require('./components/ImagePicker.vue'));
-Vue.component('date-time-picker', require('./components/DateTimePicker.vue'));
-Vue.component('multiselect', require('./components/MultiSelect.vue'));
+Vue.component('page-header', require('./components/PageHeader').default);
+Vue.component('preloader', require('./partials/Preloader').default);
+
+Vue.component('alert', require('./components/Alert').default);
+Vue.component('dropdown', require('./components/DropDown').default);
+Vue.component('modal', require('./components/Modal').default);
+Vue.component('fullscreen-modal', require('./components/FullscreenModal').default);
+Vue.component('notification', require('./components/Notification').default);
+Vue.component('mini-editor', require('./components/MiniEditor').default);
+Vue.component('editor', require('./components/Editor').default);
+Vue.component('form-errors', require('./components/FormErrors').default);
+Vue.component('image-picker', require('./components/ImagePicker').default);
+Vue.component('cropper-modal', require('./components/CropperModal').default);
+Vue.component('date-time-picker', require('./components/DateTimePicker').default);
+Vue.component('multiselect', require('./components/MultiSelect').default);
 Vue.directive('loading', require('./components/loadingButton'));
 Vue.directive('click-outside', require('./components/clickOutside'));
 
@@ -37,7 +42,7 @@ new Vue({
 
     router,
 
-    data(){
+    data() {
         return {
             alert: {
                 type: null,
@@ -55,7 +60,7 @@ new Vue({
         }
     },
 
-    mounted(){
+    mounted() {
         Bus.$on('httpError', message => this.alertError(message));
     },
 

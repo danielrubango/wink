@@ -1,16 +1,28 @@
-<script type="text/ecmascript-6">
+<script type="text/ecmascript">
+    import loadsEntries from '../loadsEntries';
+    import FiltersDropdown from '../../partials/FilterDropdown.vue';
 
     export default {
+        mixins: [loadsEntries],
+
+
+        components: {
+            'filters': FiltersDropdown
+        },
+
+
         /**
          * The component's data.
          */
         data() {
             return {
+                baseURL: '/api/pages',
                 entries: [],
                 hasMoreEntries: false,
                 nextPageUrl: null,
                 loadingMoreEntries: false,
-                ready: false
+                ready: false,
+                searchQuery: ''
             };
         },
 
@@ -23,100 +35,67 @@
 
             this.loadEntries();
         },
-
-
-        methods: {
-            loadEntries(){
-                this.http().get('/wink/api/pages').then(response => {
-                    this.entries = response.data.entries.data;
-
-                    this.hasMoreEntries = !!response.data.entries.next_page_url;
-
-                    this.nextPageUrl = response.data.entries.next_page_url;
-
-                    this.ready = true;
-                });
-            },
-
-            loadOlderEntries(){
-                this.loadingMoreEntries = true;
-
-                this.http().get(this.nextPageUrl).then(response => {
-                    this.entries.push(...response.data.entries.data);
-
-                    this.hasMoreEntries = !!response.data.entries.next_page_url;
-
-                    this.nextPageUrl = response.data.entries.next_page_url;
-
-                    this.loadingMoreEntries = false;
-                });
-            }
-        }
     }
 </script>
 
 <template>
     <div>
         <page-header>
-            <div slot="right-side">
-                <router-link :to="{name:'page-new'}" class="btn btn-outline-primary btn-sm">
-                    New page
+            <template slot="right-side">
+                <router-link :to="{name:'page-new'}" class="py-1 px-2 btn-primary text-sm">
+                    New Page
                 </router-link>
-            </div>
+            </template>
         </page-header>
 
         <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-lg-10">
-                    <div class="card">
-                        <div class="d-flex align-items-center justify-content-between mb-4">
-                            <h2>Pages</h2>
-                        </div>
+            <div class="mb-10 flex items-center">
+                <h1 class="inline font-semibold text-3xl mr-auto">Pages</h1>
 
-                        <div v-if="!ready" class="d-flex align-items-center justify-content-center p-5">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="preloader spin fill-secondary">
-                                <path d="M10 3v2a5 5 0 0 0-3.54 8.54l-1.41 1.41A7 7 0 0 1 10 3zm4.95 2.05A7 7 0 0 1 10 17v-2a5 5 0 0 0 3.54-8.54l1.41-1.41zM10 20l-4-4 4-4v8zm0-12V0l4 4-4 4z"/>
-                            </svg>
-                        </div>
+                <filters @showing="focusSearchInput" :is-filtered="isFiltered">
+                    <input type="text" class="input mt-0 w-full"
+                           placeholder="Search..."
+                           v-model="searchQuery"
+                           ref="searchInput">
+                </filters>
+            </div>
+
+            <preloader v-if="!ready"></preloader>
+
+            <div v-if="ready && entries.length == 0 && !isFiltered">
+                No pages were found, start by
+                <router-link :to="{name:'page-new'}" class="no-underline text-primary hover:text-primary-dark">writing your first page</router-link>
+                .
+            </div>
+
+            <div v-if="ready && entries.length == 0 && isFiltered">
+                No pages matched the given search.
+            </div>
+
+            <div v-if="ready && entries.length > 0">
+                <div v-for="entry in entries" :key="entry.id" class="border-t border-very-light flex items-center">
+                    <div class="py-4" :title="entry.title">
+                        <h2 class="text-xl font-semibold mb-3">
+                            <router-link :to="{name:'page-edit', params:{id: entry.id}}" class="no-underline text-text-color">
+                                {{truncate(entry.title, 68)}}
+                            </router-link>
+                        </h2>
+
+                        <p class="mb-3">{{truncate(entry.body.replace(/(<([^>]+)>)/ig,""), 100)}}</p>
+
+                        <small class="text-light">
+                            Updated {{timeAgo(entry.updated_at)}}
+                            — Created {{timeAgo(entry.created_at)}}
+                        </small>
+                    </div>
+                </div>
 
 
-                        <div v-if="ready && entries.length == 0">
-                            <p>No pages were found, start by
-                                <router-link :to="{name:'page-new'}" class="">building your first page</router-link>
-                                .
-                            </p>
-                        </div>
+                <div v-if="hasMoreEntries">
+                    <div colspan="100" class="py-8 uppercase">
+                        <a href="#" v-on:click.prevent="loadOlderEntries" v-if="!loadingMoreEntries" class="no-underline text-primary">Load more pages</a>
 
-                        <table v-if="ready && entries.length > 0" id="indexScreen" class="table table-sm mb-0">
-                            <tbody>
-                            <tr v-for="entry in entries" :key="entry.id">
-                                <td class="pl-0" :title="entry.title">
-                                    <h5 class="mb-1 font-weight-bold">
-                                        <router-link :to="{name:'page-edit', params:{id: entry.id}}" class="regular-link">
-                                            {{truncate(entry.title, 80)}}
-                                        </router-link>
-                                    </h5>
-
-                                    <p class="mb-1">{{truncate(entry.body.replace(/(<([^>]+)>)/ig,""), 100)}}</p>
-
-                                    <small class="text-muted">
-                                        Updated {{timeAgo(entry.updated_at)}}
-                                    </small>
-                                </td>
-
-                                <td class="table-fit pr-0 text-right">{{timeAgo(entry.created_at)}}</td>
-                            </tr>
-
-
-                            <tr v-if="hasMoreEntries">
-                                <td colspan="100" class="text-center py-3">
-                                    <small><a href="#" v-on:click.prevent="loadOlderEntries" v-if="!loadingMoreEntries">Load Older Pages</a></small>
-
-                                    <small v-if="loadingMoreEntries">Loading...</small>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
+                        <span v-if="loadingMoreEntries">Loading...</span>
                     </div>
                 </div>
             </div>

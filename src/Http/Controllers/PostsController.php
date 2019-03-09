@@ -6,37 +6,46 @@ use Wink\WinkTag;
 use Wink\WinkPost;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Wink\Http\Resources\PostsResource;
 
 class PostsController
 {
     /**
      * Return posts.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection|\Illuminate\Http\JsonResponse
      */
     public function index()
     {
-        $entries = WinkPost::orderBy('publish_date', 'DESC')
+        $entries = WinkPost::when(request()->has('search'), function ($q) {
+            $q->where('title', 'LIKE', '%'.request('search').'%');
+        })->when(request('status'), function ($q, $value) {
+            $q->$value();
+        })->when(request('author_id'), function ($q, $value) {
+            $q->whereAuthorId($value);
+        })->when(request('tag_id'), function ($q, $value) {
+            $q->whereHas('tags', function ($query) use ($value) {
+                $query->where('id', $value);
+            });
+        })
             ->orderBy('created_at', 'DESC')
             ->with('tags')
             ->paginate(30);
 
-        return response()->json([
-            'entries' => $entries
-        ]);
+        return PostsResource::collection($entries);
     }
 
     /**
      * Return a single post.
      *
-     * @param  string $id
+     * @param  string  $id
      * @return \Illuminate\Http\JsonResponse
      */
     public function show($id = null)
     {
-        if ($id == 'new') {
+        if ($id === 'new') {
             return response()->json([
-                'entry' => WinkPost::make(['id' => Str::uuid(), 'publish_date' => now()->toDateTimeString()])
+                'entry' => WinkPost::make(['id' => Str::uuid(), 'publish_date' => now()->format('Y-m-d H:i:00')]),
             ]);
         }
 
@@ -50,7 +59,7 @@ class PostsController
     /**
      * Store a single post.
      *
-     * @param  string $id
+     * @param  string  $id
      * @return \Illuminate\Http\JsonResponse
      */
     public function store($id)
@@ -65,6 +74,7 @@ class PostsController
             'featured_image' => request('featured_image'),
             'featured_image_caption' => request('featured_image_caption', ''),
             'publish_date' => request('publish_date', ''),
+            'meta' => request('meta', (object) []),
         ];
 
         validator($data, [
@@ -74,7 +84,7 @@ class PostsController
             'slug' => 'required|'.Rule::unique(config('wink.database_connection').'.wink_posts', 'slug')->ignore(request('id')),
         ])->validate();
 
-        $entry = $id != 'new' ? WinkPost::findOrFail($id) : new WinkPost(['id' => request('id')]);
+        $entry = $id !== 'new' ? WinkPost::findOrFail($id) : new WinkPost(['id' => request('id')]);
 
         $entry->fill($data);
 
@@ -85,14 +95,14 @@ class PostsController
         );
 
         return response()->json([
-            'entry' => $entry
+            'entry' => $entry,
         ]);
     }
 
     /**
      * Tags incoming from the request.
      *
-     * @param  array $incomingTags
+     * @param  array  $incomingTags
      * @return array
      */
     private function collectTags($incomingTags)
@@ -117,8 +127,8 @@ class PostsController
     /**
      * Return a single post.
      *
-     * @param  string $id
-     * @return \Illuminate\Http\JsonResponse
+     * @param  string  $id
+     * @return void
      */
     public function delete($id)
     {

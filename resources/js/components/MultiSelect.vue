@@ -1,11 +1,11 @@
-<script type="text/ecmascript-6">
+<script type="text/ecmascript">
     import _ from 'lodash';
     import moment from 'moment';
 
     export default {
         props: ['value', 'options', 'optionId', 'optionText'],
 
-        data(){
+        data() {
             return {
                 searchTerm: '',
                 selectedOptionIndex: 0,
@@ -22,25 +22,25 @@
 
 
         watch: {
-            value(val){
+            value(val) {
                 this.$refs.input.style.width = this.value.length ? '25px' : '108px';
                 this.$refs.input.placeholder = this.value.length ? '' : 'Add tags';
             },
 
-            searchTerm(val){
+            searchTerm(val) {
                 var width = val.length * 12;
 
                 this.$refs.input.style.width = width > 25 ? width + 'px' : '25px';
             },
 
-            matches(val){
+            matches(val) {
                 this.selectedOptionIndex = _.find(val, option => option[this.optionId] == 'addNew') ? 1 : 0;
             }
         },
 
 
         computed: {
-            matches(){
+            matches() {
                 let options = _.union(this.options, this.newOptions);
 
                 if (!this.searchTerm) {
@@ -70,7 +70,7 @@
             /**
              * Select the given option.
              */
-            selectOption(option){
+            selectOption(option) {
                 let values = this.value || [];
 
                 if (_.includes(values, option.id)) return;
@@ -90,7 +90,7 @@
             /**
              * Remove the given option.
              */
-            removeOption(option){
+            removeOption(option) {
                 let values = this.value || [];
 
                 values = _.reject(values, {id: option.id});
@@ -102,7 +102,7 @@
             /**
              * Backspace was hit.
              */
-            backspaceAction(){
+            backspaceAction() {
                 if (this.searchTerm) return;
 
                 let values = this.value || [];
@@ -118,7 +118,7 @@
             /**
              * Select the next option.
              */
-            selectNextOption(){
+            selectNextOption() {
                 if (!this.matches.length) return;
 
                 if (this.selectedOptionIndex + 1 == this.matches.length) return;
@@ -130,7 +130,7 @@
             /**
              * Select the previous option.
              */
-            selectPreviousOption(){
+            selectPreviousOption() {
                 if (!this.matches.length) return;
 
                 if (this.selectedOptionIndex === 0) return;
@@ -141,7 +141,7 @@
             /**
              * Add the selected option to the list.
              */
-            addSelectedOption(){
+            addSelectedOption() {
                 if (!this.matches[this.selectedOptionIndex]) {
                     return this.addNewOption();
                 }
@@ -157,7 +157,7 @@
             /**
              * Add a brand new option.
              */
-            addNewOption(){
+            addNewOption() {
                 let values = this.value || [];
                 let option = {};
 
@@ -187,7 +187,7 @@
             /**
              * Activate the field.
              */
-            activate(){
+            activate() {
                 this.focused = true;
 
                 this.$refs.input.focus();
@@ -197,7 +197,7 @@
             /**
              * Deactivate the field.
              */
-            deactivate(){
+            deactivate() {
                 this.focused = false;
             }
         }
@@ -205,16 +205,17 @@
 </script>
 
 <template>
-    <div class="multiselect inline-form-control"
+    <div class="multiselect relative z-50"
          :class="{active: focused}"
          @click="activate"
          v-click-outside="deactivate">
         <div class="multiselect_options">
-            <span class="badge badge-secondary mr-1"
+            <span class="bg-light hover:bg-red rounded cursor-pointer text-sm text-contrast font-semibold px-1 mr-1"
                   v-for="option in value"
                   v-on:click="removeOption(option)">{{option[optionText]}}</span>
 
             <input type="text"
+                   class="focus:outline-none bg-transparent text-text-color"
                    v-on:keydown.8="backspaceAction"
                    v-on:keydown.40="selectNextOption"
                    v-on:keydown.38="selectPreviousOption"
@@ -223,15 +224,13 @@
                    v-model="searchTerm">
         </div>
 
-        <div class="multiselect_dropdown" v-show="focused">
-            <ul>
-                <li v-if="! matches.length">Add new tag...</li>
-                <li v-for="(match, index) in matches"
+        <div class="multiselect_dropdown absolute w-full" v-show="focused">
+            <button v-if="! matches.length" class="text-text-color">Add new tag...</button>
+            <button v-for="(match, index) in matches"
                     v-on:click="selectOption(match)"
                     :class="{selected: selectedOptionIndex == index}"
                     :value="match[optionId]">{{match[optionText]}}
-                </li>
-            </ul>
+            </button>
         </div>
     </div>
 </template>

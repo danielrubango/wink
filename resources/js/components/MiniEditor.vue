@@ -1,5 +1,4 @@
-<script type="text/ecmascript-6">
-    import $ from 'jquery';
+<script type="text/ecmascript">
     import _ from 'lodash';
     import Quill from 'quill';
 
@@ -13,7 +12,7 @@
             }
         },
 
-        data(){
+        data() {
             return {
                 editor: null,
                 editorBody: this.body
@@ -39,7 +38,7 @@
             /**
              * Create an instance of the editor.
              */
-            createEditor(){
+            createEditor() {
                 return new Quill(this.$refs.editor, {
                     modules: {
                         syntax: true,
@@ -57,7 +56,7 @@
             /**
              * Handle the editor value.
              */
-            handleEditorValue(){
+            handleEditorValue() {
                 this.editor.root.innerHTML = this.value || 'Write something...';
 
                 this.editor.on('text-change', () => {
@@ -69,7 +68,7 @@
 </script>
 
 <template>
-    <div style="position: relative">
+    <div class="relative">
         <div ref="editor"></div>
     </div>
 </template>

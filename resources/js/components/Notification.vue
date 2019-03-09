@@ -1,8 +1,8 @@
-<script type="text/ecmascript-6">
+<script type="text/ecmascript">
     export default {
         props: ['type', 'message', 'autoClose'],
 
-        data(){
+        data() {
             return {
                 timeout: null
             }
@@ -20,7 +20,7 @@
             /**
              * Close the notification.
              */
-            close(){
+            close() {
                 clearTimeout(this.timeout);
 
                 this.$root.notification.type = null;
@@ -32,7 +32,7 @@
 </script>
 
 <template>
-    <div id="notificationBody" class="text-white bg-success border px-5 py-2">
+    <div id="notificationBody" class="text-contrast bg-green px-8 py-4 rounded-lg">
         {{message}}
     </div>
 </template>

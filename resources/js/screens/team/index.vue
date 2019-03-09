@@ -1,16 +1,28 @@
-<script type="text/ecmascript-6">
+<script type="text/ecmascript">
+    import loadsEntries from '../loadsEntries';
+    import FiltersDropdown from '../../partials/FilterDropdown.vue';
 
     export default {
+        mixins: [loadsEntries],
+
+
+        components: {
+            'filters': FiltersDropdown
+        },
+
+
         /**
          * The component's data.
          */
         data() {
             return {
+                baseURL: '/api/team',
                 entries: [],
-                ready: false,
-                nextPageUrl: null,
                 hasMoreEntries: false,
+                nextPageUrl: null,
                 loadingMoreEntries: false,
+                ready: false,
+                searchQuery: ''
             };
         },
 
@@ -23,35 +35,6 @@
 
             this.loadEntries();
         },
-
-
-        methods: {
-            loadEntries(){
-                this.http().get('/wink/api/team?paginate=50').then(response => {
-                    this.entries = response.data.entries.data;
-
-                    this.hasMoreEntries = !!response.data.entries.next_page_url;
-
-                    this.nextPageUrl = response.data.entries.next_page_url;
-
-                    this.ready = true;
-                });
-            },
-
-            loadOlderEntries(){
-                this.loadingMoreEntries = true;
-
-                this.http().get(this.nextPageUrl).then(response => {
-                    this.entries.push(...response.data.entries.data);
-
-                    this.hasMoreEntries = !!response.data.entries.next_page_url;
-
-                    this.nextPageUrl = response.data.entries.next_page_url;
-
-                    this.loadingMoreEntries = false;
-                });
-            }
-        }
     }
 </script>
 
@@ -59,72 +42,66 @@
     <div>
         <page-header>
             <div slot="right-side">
-                <router-link :to="{name:'team-new'}" class="btn btn-outline-primary btn-sm">
+                <router-link :to="{name:'team-new'}" class="py-1 px-2 btn-primary text-sm">
                     New Author
                 </router-link>
             </div>
         </page-header>
 
         <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-lg-10">
-                    <div class="card">
-                        <div class="d-flex align-items-center justify-content-between mb-4">
-                            <h2>Team</h2>
+            <div class="mb-10 flex items-center">
+                <h1 class="inline font-semibold text-3xl mr-auto">Team</h1>
 
-                            <div>
-                            </div>
-                        </div>
+                <filters @showing="focusSearchInput" :is-filtered="isFiltered">
+                    <input type="text" class="input mt-0 w-full"
+                           placeholder="Search..."
+                           v-model="searchQuery"
+                           ref="searchInput">
+                </filters>
+            </div>
 
-                        <div v-if="!ready" class="d-flex align-items-center justify-content-center p-5 bottom-radius">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="preloader spin fill-secondary">
-                                <path d="M10 3v2a5 5 0 0 0-3.54 8.54l-1.41 1.41A7 7 0 0 1 10 3zm4.95 2.05A7 7 0 0 1 10 17v-2a5 5 0 0 0 3.54-8.54l1.41-1.41zM10 20l-4-4 4-4v8zm0-12V0l4 4-4 4z"/>
-                            </svg>
-                        </div>
+            <preloader v-if="!ready"></preloader>
 
+            <div v-if="ready && entries.length == 0 && !isFiltered">
+                <p>No authors were found, start by
+                    <router-link :to="{name:'team-new'}" class="no-underline text-primary hover:text-primary-dark">adding an author</router-link>
+                    .
+                </p>
+            </div>
 
-                        <div v-if="ready && entries.length == 0">
-                            <p>No authors were found, start by
-                                <router-link :to="{name:'team-new'}" class="">adding an author</router-link>
-                                .
-                            </p>
-                        </div>
+            <div v-if="ready && entries.length == 0 && isFiltered">
+                No authors matched the given search.
+            </div>
 
-                        <table v-if="ready && entries.length > 0" id="indexScreen" class="table table-sm mb-0">
-                            <tbody>
-                            <tr v-for="entry in entries" :key="entry.id">
-                                <td class="table-fit pl-0">
-                                    <img :src="entry.avatar" class="rounded-circle" style="width:40px">
-                                </td>
+            <div v-if="ready && entries.length > 0">
+                <div v-for="entry in entries" :key="entry.id" class="border-t border-very-light flex items-center py-5">
+                    <div :title="entry.name">
+                        <h2 class="text-xl font-semibold mb-3">
+                            <router-link :to="{name:'team-edit', params:{id: entry.id}}" class="no-underline text-text-color">
+                                {{truncate(entry.name, 68)}}
+                            </router-link>
+                        </h2>
 
-                                <td :title="entry.title">
-                                    <h5 class="mb-0">
-                                        <router-link :to="{name:'team-edit', params:{id: entry.id}}" class="regular-link">
-                                            {{truncate(entry.name, 80)}}
-                                        </router-link>
-                                    </h5>
+                        <small class="text-light">
+                            <span>{{entry.email}}</span>
+                            — Created {{timeAgo(entry.created_at)}}
+                        </small>
+                    </div>
 
-                                    <small class="text-muted">
-                                        <small class="badge badge-primary" v-if="Config.author.id == entry.id">You</small>
-                                        {{entry.email}}
-                                    </small>
-                                </td>
+                    <div class="ml-auto text-light mr-8">
+                        {{entry.posts_count}} Post(s)
+                    </div>
 
-                                <td class="table-fit text-muted text-right">{{entry.posts_count}} Post(s)</td>
+                    <router-link :to="{name:'team-edit', params:{id: entry.id}}" class="no-underline hidden lg:block">
+                        <div class="w-16 h-16 rounded-full bg-cover" :style="{ backgroundImage: 'url(' + entry.avatar + ')' }"></div>
+                    </router-link>
+                </div>
 
-                                <td class="table-fit pr-0 text-right">{{timeAgo(entry.created_at)}}</td>
-                            </tr>
+                <div v-if="hasMoreEntries">
+                    <div colspan="100" class="py-8 uppercase">
+                        <a href="#" v-on:click.prevent="loadOlderEntries" v-if="!loadingMoreEntries" class="no-underline text-primary">Load more authors</a>
 
-
-                            <tr v-if="hasMoreEntries">
-                                <td colspan="100" class="text-center py-3">
-                                    <small><a href="#" v-on:click.prevent="loadOlderEntries" v-if="!loadingMoreEntries">Load Older Authors</a></small>
-
-                                    <small v-if="loadingMoreEntries">Loading...</small>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
+                        <span v-if="loadingMoreEntries">Loading...</span>
                     </div>
                 </div>
             </div>

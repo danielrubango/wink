@@ -2,9 +2,7 @@
 
 namespace Wink;
 
-use Illuminate\Database\Eloquent\Model;
-
-class WinkTag extends Model
+class WinkTag extends AbstractWinkModel
 {
     /**
      * The attributes that aren't mass assignable.
@@ -42,6 +40,15 @@ class WinkTag extends Model
     public $incrementing = false;
 
     /**
+     * The attributes that should be casted.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'meta' => 'array',
+    ];
+
+    /**
      * The posts that has the tag.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
@@ -49,16 +56,6 @@ class WinkTag extends Model
     public function posts()
     {
         return $this->belongsToMany(WinkPost::class, 'wink_posts_tags', 'tag_id', 'post_id');
-    }
-
-    /**
-     * Get the current connection name for the model.
-     *
-     * @return string
-     */
-    public function getConnectionName()
-    {
-        return config('wink.database_connection');
     }
 
     /**

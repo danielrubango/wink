@@ -1,7 +1,11 @@
-<script type="text/ecmascript-6">
-    import $ from 'jquery';
+<script type="text/ecmascript">
+    import SEOModal from './../../components/SEOModal';
 
     export default {
+        components: {
+            'seo-modal': SEOModal,
+        },
+
         data() {
             return {
                 ready: false,
@@ -10,7 +14,12 @@
 
                 id: this.$route.params.id || 'new',
 
+                saveKeyboardShortcut: null,
+
                 errors: [],
+
+                settingsModalShown: false,
+                seoModalShown: false,
 
                 form: {
                     errors: [],
@@ -18,19 +27,30 @@
                     title: 'Page Title',
                     slug: '',
                     body: '',
+                    meta: {
+                        meta_description: '',
+                        opengraph_title: '',
+                        opengraph_description: '',
+                        opengraph_image: '',
+                        opengraph_image_width: '',
+                        opengraph_image_height: '',
+                        twitter_title: '',
+                        twitter_description: '',
+                        twitter_image: '',
+                    }
                 }
             };
         },
 
 
         watch: {
-            'form.slug'(val){
+            'form.slug'(val) {
                 this.debouncer(() => {
                     this.form.slug = this.slugify(val);
                 });
             },
 
-            'form.title'(val){
+            'form.title'(val) {
                 this.debouncer(() => {
                     if (this.form.slug) return;
 
@@ -38,10 +58,11 @@
                 });
             },
 
-            '$route.params.id'(){
+            '$route.params.id'() {
                 this.id = this.$route.params.id;
             }
         },
+
 
         /**
          * Prepare the component.
@@ -49,7 +70,7 @@
         mounted() {
             document.title = "Edit Page — Wink.";
 
-            this.http().get('/wink/api/pages/' + this.id).then(response => {
+            this.http().get('/api/pages/' + this.id).then(response => {
                 this.entry = _.cloneDeep(response.data.entry);
 
                 this.fillForm(response.data.entry);
@@ -67,30 +88,42 @@
          * Clean after the component is destroyed.
          */
         destroyed() {
-            $(document).off('keydown');
+            document.removeEventListener('keydown', this.saveKeyboardShortcut);
         },
 
 
         methods: {
-            registerSaveKeyboardShortcut(){
-                $(document).keydown(event => {
-                        if ((event.ctrlKey || event.metaKey) && event.which == 83) {
-                            event.preventDefault();
+            registerSaveKeyboardShortcut() {
+                this.saveKeyboardShortcut = (event) => {
+                    if ((event.ctrlKey || event.metaKey) && event.which == 83) {
+                        event.preventDefault();
 
-                            this.save();
-                        }
+                        this.save();
                     }
-                );
+                };
+
+                document.addEventListener('keydown', this.saveKeyboardShortcut);
             },
 
 
-            fillForm(data){
+            fillForm(data) {
                 this.form.id = data.id;
 
                 if (this.id != 'new') {
                     this.form.title = data.title;
                     this.form.slug = data.slug;
                     this.form.body = data.body;
+                    this.form.meta = {
+                        meta_description: data.meta.meta_description || '',
+                        opengraph_title: data.meta.opengraph_title || '',
+                        opengraph_description: data.meta.opengraph_description || '',
+                        opengraph_image: data.meta.opengraph_image || '',
+                        opengraph_image_width: data.meta.opengraph_image_width || '',
+                        opengraph_image_height: data.meta.opengraph_image_height || '',
+                        twitter_title: data.meta.twitter_title || '',
+                        twitter_description: data.meta.twitter_description || '',
+                        twitter_image: data.meta.twitter_image || '',
+                    };
                 }
 
                 setTimeout(() => {
@@ -102,29 +135,42 @@
             /**
              * Open the settings modal.
              */
-            settingsModal(){
-                $('#pageSettingsModal').modal('show');
-
-                $('#title').focus();
+            settingsModal() {
+                this.settingsModalShown = true;
             },
 
 
             /**
              * Close the settings modal.
              */
-            closeSettingsModal(){
-                $('#pageSettingsModal').modal('hide');
+            closeSettingsModal() {
+                this.settingsModalShown = false;
+            },
+
+            /**
+             * Open the SEO & Social modal.
+             */
+            seoModal() {
+                this.seoModalShown = true;
+            },
+
+            /**
+             * Close the SEO modal.
+             */
+            closeSeoModal({content}) {
+                this.seoModalShown = false;
+                this.form.meta = content;
             },
 
 
             /**
              * Delete the page.
              */
-            deletePage(){
+            deletePage() {
                 this.alertConfirm("Are you sure you want to delete this page?", () => {
-                    $('#pageSettingsModal').modal('hide');
+                    this.settingsModalShown = false;
 
-                    this.http().delete('/wink/api/pages/' + this.id, this.form).then(response => {
+                    this.http().delete('/api/pages/' + this.id, this.form).then(response => {
                         this.$router.push({name: 'pages'})
                     })
                 });
@@ -134,11 +180,11 @@
             /**
              * Save the page.
              */
-            save(){
+            save() {
                 this.errors = [];
                 this.status = 'Saving...';
 
-                this.http().post('/wink/api/pages/' + this.id, this.form).then(response => {
+                this.http().post('/api/pages/' + this.id, this.form).then(response => {
                     this.status = '';
 
                     if (this.id == 'new') {
@@ -147,7 +193,7 @@
                 }).catch(error => {
                     this.errors = error.response.data.errors;
 
-                    $('#pageSettingsModal').modal('show');
+                    this.settingsModalShown = true;
 
                     this.form.working = false;
                 });
@@ -160,74 +206,75 @@
     <div>
         <page-header>
             <div slot="left-side">
-                <strong v-if="!status && id == 'new'">New</strong>
-                <strong v-if="!status && id != 'new'">Saved</strong>
+                <span class="font-semibold" v-if="!status && id == 'new'">New</span>
+                <span class="font-semibold" v-if="!status && id != 'new'">Saved</span>
                 <span>{{status}}</span>
             </div>
 
 
-            <div slot="right-side">
-                <div v-if="ready && entry">
-                    <button class="btn btn btn-link btn-sm btn-sm" @click="settingsModal">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="icon fill-secondary">
+            <div class="flex items-center" v-if="ready && entry" slot="right-side">
+
+                <button class="py-1 px-2 btn-primary text-sm mr-6" @click="save" v-loading="status">Save</button>
+
+                <dropdown class="relative">
+                    <button slot="trigger" class="focus:outline-none text-light hover:text-primary h-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="w-4 h-4 fill-current mt-1">
                             <path d="M17 16v4h-2v-4h-2v-3h6v3h-2zM1 9h6v3H1V9zm6-4h6v3H7V5zM3 0h2v8H3V0zm12 0h2v12h-2V0zM9 0h2v4H9V0zM3 12h2v8H3v-8zm6-4h2v12H9V8z"/>
                         </svg>
                     </button>
-                </div>
+
+                    <div slot="content" class="dropdown-content pin-r min-w-dropdown mt-1 text-sm py-2">
+                        <a href="#" @click.prevent="settingsModal" class="no-underline text-text-color hover:text-primary w-full block py-2 px-4">
+                            General Settings
+                        </a>
+                        <a href="#" @click.prevent="seoModal" class="no-underline text-text-color hover:text-primary w-full block py-2 px-4">
+                            SEO & Social
+                        </a>
+                        <a href="#" @click.prevent="deletePage" class="no-underline text-red w-full block py-2 px-4" v-if="id != 'new'">Delete</a>
+                    </div>
+                </dropdown>
             </div>
         </page-header>
 
         <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-lg-8">
-                    <div class="card">
-                        <div v-if="!ready" class="d-flex align-items-center justify-content-center p-5 bottom-radius">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="preloader spin fill-secondary">
-                                <path d="M10 3v2a5 5 0 0 0-3.54 8.54l-1.41 1.41A7 7 0 0 1 10 3zm4.95 2.05A7 7 0 0 1 10 17v-2a5 5 0 0 0 3.54-8.54l1.41-1.41zM10 20l-4-4 4-4v8zm0-12V0l4 4-4 4z"/>
-                            </svg>
-                        </div>
+            <preloader v-if="!ready"></preloader>
 
+            <h2 v-if="ready && !entry" class="text-center font-normal">
+                404 — Page not found
+            </h2>
 
-                        <div v-if="ready && !entry" class="d-flex align-items-center justify-content-center p-5 bottom-radius">
-                            <h2 class="mb-5 text-center">404 — Page not found</h2>
-                        </div>
+            <div class="lg:w-3/4 mx-auto" v-if="ready && entry">
+                <textarea-autosize
+                        placeholder="Type something here..."
+                        class="text-3xl font-semibold w-full focus:outline-none mb-10"
+                        v-model="form.title"
+                ></textarea-autosize>
 
-                        <div v-if="ready && entry">
-                            <div id="editorContainer">
-                                <textarea-autosize
-                                    placeholder="Type something here..."
-                                    class="editor-title"
-                                    v-model="form.title"
-                                ></textarea-autosize>
-
-                                <editor :post-id="id" v-model="form.body"></editor>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Post Settings Modal -->
-                    <div class="modal" id="pageSettingsModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
-                        <div class="modal-dialog" role="document">
-                            <div class="modal-content">
-                                <div class="modal-body">
-                                    <div class="form-group border-bottom pb-3">
-                                        <label for="name" class="inline-form-control-label">Slug</label>
-                                        <input type="text" class="inline-form-control text-body-color"
-                                               v-model="form.slug"
-                                               placeholder="Give me a slug"
-                                               id="slug">
-
-                                        <form-errors :errors="errors.slug"></form-errors>
-                                    </div>
-
-                                    <button class="btn btn-link text-danger p-0" @click="deletePage" v-if="id != 'new'">Delete this page</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <editor :post-id="id" v-model="form.body"></editor>
             </div>
         </div>
+
+        <!-- Post Settings Modal -->
+        <modal v-if="settingsModalShown" @close="settingsModalShown = false">
+            <div class="input-group pt-0">
+                <label class="input-label">Slug</label>
+                <input type="text" class="input"
+                       v-model="form.slug"
+                       placeholder="Give me a slug"
+                       id="slug">
+
+                <form-errors :errors="errors.slug"></form-errors>
+            </div>
+
+            <div class="mt-10">
+                <button class="btn-sm btn-primary" @click="settingsModalShown = false">Done</button>
+            </div>
+        </modal>
+
+        <!-- SEO & Social Modal -->
+        <seo-modal v-if="seoModalShown"
+                   :input="form.meta"
+                   @close="closeSeoModal"></seo-modal>
     </div>
 </template>
 

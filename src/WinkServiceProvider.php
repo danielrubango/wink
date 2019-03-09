@@ -16,7 +16,6 @@ class WinkServiceProvider extends ServiceProvider
     public function boot()
     {
         $this->registerRoutes();
-        $this->registerMigrations();
         $this->registerAuthGuard();
         $this->registerPublishing();
 
@@ -32,10 +31,12 @@ class WinkServiceProvider extends ServiceProvider
      */
     private function registerRoutes()
     {
+        $path = config('wink.path');
+
         Route::namespace('Wink\Http\Controllers')
             ->middleware('web')
             ->as('wink.')
-            ->prefix('wink')
+            ->prefix($path)
             ->group(function () {
                 Route::get('/login', 'LoginController@showLoginForm')->name('auth.login');
                 Route::post('/login', 'LoginController@login')->name('auth.attempt');
@@ -48,22 +49,10 @@ class WinkServiceProvider extends ServiceProvider
         Route::namespace('Wink\Http\Controllers')
             ->middleware(['web', Authenticate::class])
             ->as('wink.')
-            ->prefix('wink')
+            ->prefix($path)
             ->group(function () {
                 $this->loadRoutesFrom(__DIR__.'/Http/routes.php');
             });
-    }
-
-    /**
-     * Register the package's migrations.
-     *
-     * @return void
-     */
-    private function registerMigrations()
-    {
-        if ($this->app->runningInConsole()) {
-            $this->loadMigrationsFrom(__DIR__.'/Migrations');
-        }
     }
 
     /**

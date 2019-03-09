@@ -2,9 +2,7 @@
 
 namespace Wink;
 
-use Illuminate\Database\Eloquent\Model;
-
-class WinkPost extends Model
+class WinkPost extends AbstractWinkModel
 {
     /**
      * The attributes that aren't mass assignable.
@@ -47,13 +45,23 @@ class WinkPost extends Model
      * @var array
      */
     public $dates = [
-        'publish_date'
+        'publish_date',
+    ];
+
+    /**
+     * The attributes that should be casted.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'meta' => 'array',
+        'published' => 'boolean',
     ];
 
     /**
      * The tags the post belongs to.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
     public function tags()
     {
@@ -63,7 +71,7 @@ class WinkPost extends Model
     /**
      * The post author.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function author()
     {
@@ -71,12 +79,70 @@ class WinkPost extends Model
     }
 
     /**
-     * Get the current connection name for the model.
+     * Scope a query to only include published posts.
      *
-     * @return string
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function getConnectionName()
+    public function scopePublished($query)
     {
-        return config('wink.database_connection');
+        return $query->where('published', true);
+    }
+
+    /**
+     * Scope a query to only include drafts (unpublished posts).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeDraft($query)
+    {
+        return $query->where('published', false);
+    }
+
+    /**
+     * Scope a query to only include posts whose publish date is in the past (or now).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeLive($query)
+    {
+        return $query->published()->where('publish_date', '<=', now());
+    }
+
+    /**
+     * Scope a query to only include posts whose publish date is in the future.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeScheduled($query)
+    {
+        return $query->where('publish_date', '>', now());
+    }
+
+    /**
+     * Scope a query to only include posts whose publish date is before a given date.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  string  $date
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeBeforePublishDate($query, $date)
+    {
+        return $query->where('publish_date', '<=', $date);
+    }
+
+    /**
+     * Scope a query to only include posts whose publish date is after a given date.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  string  $date
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeAfterPublishDate($query, $date)
+    {
+        return $query->where('publish_date', '>', $date);
     }
 }

@@ -2,9 +2,7 @@
 
 namespace Wink;
 
-use Illuminate\Database\Eloquent\Model;
-
-class WinkPage extends Model
+class WinkPage extends AbstractWinkModel
 {
     /**
      * The attributes that aren't mass assignable.
@@ -49,15 +47,6 @@ class WinkPage extends Model
     protected $casts = [
         'id' => 'string',
         'body' => 'string',
+        'meta' => 'array',
     ];
-
-    /**
-     * Get the current connection name for the model.
-     *
-     * @return string
-     */
-    public function getConnectionName()
-    {
-        return config('wink.database_connection');
-    }
 }

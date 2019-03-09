@@ -2,10 +2,9 @@
 
 namespace Wink;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Contracts\Auth\Authenticatable;
 
-class WinkAuthor extends Model implements Authenticatable
+class WinkAuthor extends AbstractWinkModel implements Authenticatable
 {
     /**
      * The attributes that aren't mass assignable.
@@ -13,6 +12,13 @@ class WinkAuthor extends Model implements Authenticatable
      * @var array
      */
     protected $guarded = [];
+
+    /**
+     * The attributes excluded from the model's JSON form.
+     *
+     * @var array
+     */
+    protected $hidden = ['password', 'remember_token'];
 
     /**
      * The table associated with the model.
@@ -41,13 +47,22 @@ class WinkAuthor extends Model implements Authenticatable
      * @var bool
      */
     public $incrementing = false;
-    
+
     /**
      * The column name of the "remember me" token.
      *
      * @var string
      */
     protected $rememberTokenName = 'remember_token';
+
+    /**
+     * The attributes that should be casted.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'meta' => 'array',
+    ];
 
     /**
      * The posts.
@@ -104,7 +119,7 @@ class WinkAuthor extends Model implements Authenticatable
     /**
      * Set the token value for the "remember me" session.
      *
-     * @param  string $value
+     * @param  string  $value
      * @return void
      */
     public function setRememberToken($value)
@@ -127,21 +142,11 @@ class WinkAuthor extends Model implements Authenticatable
     /**
      * Get the authors's avatar.
      *
-     * @param  string $value
+     * @param  string  $value
      * @return string
      */
     public function getAvatarAttribute($value)
     {
-        return $value ?: 'http://i.pravatar.cc/100';
-    }
-
-    /**
-     * Get the current connection name for the model.
-     *
-     * @return string
-     */
-    public function getConnectionName()
-    {
-        return config('wink.database_connection');
+        return $value ?: 'https://secure.gravatar.com/avatar/'.md5(strtolower(trim($this->email))).'?s=80';
     }
 }

@@ -1,5 +1,4 @@
-<script type="text/ecmascript-6">
-    import $ from 'jquery';
+<script type="text/ecmascript">
     import _ from 'lodash';
     import Quill from 'quill';
     import ImageUploader from './editorComponents/ImageUploader.vue';
@@ -60,7 +59,7 @@
                     modules: {
                         syntax: true,
                         toolbar: [
-                            ['bold', 'italic', 'underline', 'strike'],
+                            ['bold', 'italic', 'underline', 'strike', 'code'],
                             [{'header': '2'}, {'header': '3'}],
                             [{'list': 'ordered'}, {'list': 'bullet'}, 'link'],
                             ['blockquote', 'code-block'],
@@ -69,7 +68,7 @@
                     },
                     theme: 'bubble',
                     scrollingContainer: 'html, body',
-                    placeholder: "Write to the world..."
+                    placeholder: "Starting writing now..."
                 });
             },
 
@@ -111,6 +110,8 @@
                 let Block = Quill.import('blots/block');
 
                 this.editor.on(Quill.events.EDITOR_CHANGE, (eventType, range) => {
+                    let sidebarControls = document.getElementById('sidebar-controls');
+
                     if (eventType !== Quill.events.SELECTION_CHANGE) return;
 
                     if (range == null) return;
@@ -121,17 +122,21 @@
                         if (block != null && block.domNode.firstChild instanceof HTMLBRElement) {
                             let lineBounds = this.editor.getBounds(range);
 
-                            $('#sidebar-controls').removeClass('active').show().css({
-                                left: lineBounds.left - 50,
-                                top: lineBounds.top - 2
-                            });
+                            sidebarControls.classList.remove('active');
+
+                            sidebarControls.style.display = 'block';
+
+                            sidebarControls.style.left = (lineBounds.left - 50) + 'px';
+                            sidebarControls.style.top = (lineBounds.top - 2) + 'px';
                         } else {
-                            $('#sidebar-controls').hide().removeClass('active');
+                            sidebarControls.style.display = 'none';
+
+                            sidebarControls.classList.remove('active');
                         }
                     } else {
-                        $('#sidebar-controls').hide();
+                        sidebarControls.style.display = 'none';
 
-                        $('#sidebar-controls').removeClass('active');
+                        sidebarControls.classList.remove('active');
                     }
                 });
             },
@@ -141,7 +146,7 @@
              * Show the side controls.
              */
             showSideControls(){
-                $('#sidebar-controls').toggleClass('active');
+                document.getElementById('sidebar-controls').classList.toggle('active');
 
                 this.editor.focus();
             },
@@ -205,21 +210,21 @@
 <template>
     <div style="position: relative">
         <div id="sidebar-controls">
-            <button id="show-controls" class="btn btn-outline-secondary" @click="showSideControls">+</button>
+            <button id="show-controls" class="rounded-full w-8 h-8 border border-light text-light hover:bg-light hover:text-contrast text-center" @click="showSideControls">+</button>
 
-            <div class="controls">
-                <button class="btn btn-outline-secondary" @click="openImageUploader()">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="fill-secondary">
+            <div class="controls hidden pl-4 bg-contrast">
+                <button @click="openImageUploader()">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="fill-current w-3">
                         <path d="M0 4c0-1.1.9-2 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm11 9l-3-3-6 6h16l-5-5-2 2zm4-4a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
                     </svg>
                 </button>
-                <button class="btn btn-outline-secondary" @click="$emit('openingHTMLEmbedder')">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="fill-secondary">
+                <button @click="$emit('openingHTMLEmbedder')">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="fill-current w-3">
                         <path d="M.7 9.3l4.8-4.8 1.4 1.42L2.84 10l4.07 4.07-1.41 1.42L0 10l.7-.7zm18.6 1.4l.7-.7-5.49-5.49-1.4 1.42L17.16 10l-4.07 4.07 1.41 1.42 4.78-4.78z"/>
                     </svg>
                 </button>
-                <button class="btn btn-outline-secondary" @click="addDivider">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="fill-secondary">
+                <button @click="addDivider">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="fill-current w-3">
                         <path d="M4 12a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm6 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm6 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
                     </svg>
                 </button>
